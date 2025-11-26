@@ -1,0 +1,195 @@
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Shield, LogOut, QrCode, Database, BarChart3, Users } from "lucide-react";
+import { toast } from "sonner";
+
+interface UserData {
+  id: string;
+  email: string;
+  fullName: string;
+  role: string;
+}
+
+const Dashboard = () => {
+  const navigate = useNavigate();
+  const [user, setUser] = useState<UserData | null>(null);
+  const [userRole, setUserRole] = useState<string>("public");
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkAuth = async () => {
+      const token = localStorage.getItem("authToken");
+      const userData = localStorage.getItem("user");
+      
+      if (!token || !userData) {
+        navigate("/auth");
+        return;
+      }
+
+      try {
+        const parsedUser = JSON.parse(userData) as UserData;
+        setUser(parsedUser);
+        setUserRole(parsedUser.role || "public");
+      } catch (error) {
+        navigate("/auth");
+        return;
+      }
+
+      setLoading(false);
+    };
+
+    checkAuth();
+  }, [navigate]);
+
+  const handleSignOut = async () => {
+    localStorage.removeItem("authToken");
+    localStorage.removeItem("user");
+    toast.success("Signed out successfully");
+    navigate("/auth");
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gradient-hero">
+      <header className="border-b bg-card/50 backdrop-blur-sm sticky top-0 z-10">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center gap-2">
+            <Shield className="h-6 w-6 text-primary" />
+            <h1 className="text-xl font-bold">RC Verification System</h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-muted-foreground">
+              <span className="font-medium">{user?.email}</span>
+              <span className="ml-2 px-2 py-1 bg-primary/10 text-primary rounded-md text-xs capitalize">
+                {userRole}
+              </span>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleSignOut}>
+              <LogOut className="h-4 w-4 mr-2" />
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </header>
+
+      <main className="container mx-auto px-4 py-8">
+        <div className="mb-8">
+          <h2 className="text-3xl font-bold mb-2">Welcome to Your Dashboard</h2>
+          <p className="text-muted-foreground">
+            Manage vehicle registrations and perform fraud detection
+          </p>
+        </div>
+
+        <Tabs defaultValue="verify" className="space-y-6">
+          <TabsList>
+            <TabsTrigger value="verify">
+              <QrCode className="h-4 w-4 mr-2" />
+              Verify RC
+            </TabsTrigger>
+            {(userRole === "rto_admin" || userRole === "police") && (
+              <>
+                <TabsTrigger value="vehicles">
+                  <Database className="h-4 w-4 mr-2" />
+                  Vehicles
+                </TabsTrigger>
+                <TabsTrigger value="analytics">
+                  <BarChart3 className="h-4 w-4 mr-2" />
+                  Analytics
+                </TabsTrigger>
+              </>
+            )}
+            {userRole === "rto_admin" && (
+              <TabsTrigger value="users">
+                <Users className="h-4 w-4 mr-2" />
+                Users
+              </TabsTrigger>
+            )}
+          </TabsList>
+
+          <TabsContent value="verify" className="space-y-4">
+            <Card className="shadow-card">
+              <CardHeader>
+                <CardTitle>RC Verification</CardTitle>
+                <CardDescription>
+                  Scan QR code or enter RC number to verify vehicle registration
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <Button
+                    className="w-full"
+                    size="lg"
+                    onClick={() => navigate("/verify")}
+                  >
+                    <QrCode className="h-5 w-5 mr-2" />
+                    Start Verification
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {(userRole === "rto_admin" || userRole === "police") && (
+            <TabsContent value="vehicles">
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Vehicle Database</CardTitle>
+                  <CardDescription>View and manage registered vehicles</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => navigate("/vehicles")}>
+                    View All Vehicles
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {(userRole === "rto_admin" || userRole === "police") && (
+            <TabsContent value="analytics">
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>Fraud Analytics</CardTitle>
+                  <CardDescription>View fraud detection statistics and trends</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => navigate("/analytics")}>
+                    View Analytics Dashboard
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+
+          {userRole === "rto_admin" && (
+            <TabsContent value="users">
+              <Card className="shadow-card">
+                <CardHeader>
+                  <CardTitle>User Management</CardTitle>
+                  <CardDescription>Manage user roles and permissions</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <Button onClick={() => navigate("/admin/users")}>
+                    Manage Users
+                  </Button>
+                </CardContent>
+              </Card>
+            </TabsContent>
+          )}
+        </Tabs>
+      </main>
+    </div>
+  );
+};
+
+export default Dashboard;

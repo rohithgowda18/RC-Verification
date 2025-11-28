@@ -1,5 +1,5 @@
 // API client for Spring Boot backend
-const API_BASE_URL = "http://localhost:8081";
+const API_BASE_URL = "http://localhost:8080";
 
 async function handleResponse(response: Response) {
   const text = await response.text();
@@ -17,11 +17,20 @@ async function handleResponse(response: Response) {
 }
 
 export const apiClient = {
-  // Vehicle endpoints
-  vehicles: {
+  // Placeholder auth methods (backend auth not present in this module)
+  auth: {
+    signUp: async (_email: string, _password: string, _fullName: string) => {
+      throw new Error("Auth API not implemented in backend");
+    },
+    signIn: async (_email: string, _password: string) => {
+      throw new Error("Auth API not implemented in backend");
+    },
+  },
+  rc: {
+    // Public endpoints
     search: async (rcNumber: string) => {
       const response = await fetch(
-        `${API_BASE_URL}/api/vehicles/search?rcNumber=${rcNumber}`,
+        `${API_BASE_URL}/api/rc/search?rcNumber=${encodeURIComponent(rcNumber)}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -30,25 +39,8 @@ export const apiClient = {
       return handleResponse(response);
     },
 
-    performFraudChecks: async (vehicleId: string) => {
-      const response = await fetch(`${API_BASE_URL}/api/vehicles/fraud-check`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ vehicleId }),
-      });
-      return handleResponse(response);
-    },
-
     getAll: async () => {
-      const response = await fetch(`${API_BASE_URL}/api/vehicles`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
-      });
-      return handleResponse(response);
-    },
-
-    getByStatus: async (status: string) => {
-      const response = await fetch(`${API_BASE_URL}/api/vehicles/status/${status}`, {
+      const response = await fetch(`${API_BASE_URL}/api/rc`, {
         method: "GET",
         headers: { "Content-Type": "application/json" },
       });
@@ -56,9 +48,46 @@ export const apiClient = {
     },
 
     getById: async (id: string) => {
-      const response = await fetch(`${API_BASE_URL}/api/vehicles/${id}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch(`${API_BASE_URL}/api/rc/${id}`,
+        {
+          method: "GET",
+          headers: { "Content-Type": "application/json" },
+        }
+      );
+      return handleResponse(response);
+    },
+
+    // Admin-only endpoints (require X-ADMIN-KEY)
+    create: async (rc: any, adminKey: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/rc`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "X-ADMIN-KEY": adminKey,
+        },
+        body: JSON.stringify(rc),
+      });
+      return handleResponse(response);
+    },
+
+    update: async (id: string, rc: any, adminKey: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/rc/${id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          "X-ADMIN-KEY": adminKey,
+        },
+        body: JSON.stringify(rc),
+      });
+      return handleResponse(response);
+    },
+
+    remove: async (id: string, adminKey: string) => {
+      const response = await fetch(`${API_BASE_URL}/api/rc/${id}`, {
+        method: "DELETE",
+        headers: {
+          "X-ADMIN-KEY": adminKey,
+        },
       });
       return handleResponse(response);
     },

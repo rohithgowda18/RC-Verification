@@ -76,9 +76,9 @@ const RcDetail = () => {
                   <div>Fuel: {rc.vehicleInfo?.fuelType ?? "—"}</div>
                   <div>Color: {rc.vehicleInfo?.color ?? "—"}</div>
                   <div>Manufacture Year: {rc.vehicleInfo?.manufactureYear ?? "—"}</div>
-                  <div>Chassis: {rc.vehicleInfo?.chassisNumber ?? "—"}</div>
-                  <div>Engine: {rc.vehicleInfo?.engineNumber ?? "—"}</div>
-                  <div>Reg State: {rc.vehicleInfo?.registrationState ?? "—"}</div>
+                  <div>Chassis: {rc.chassisNumber ?? "—"}</div>
+                  <div>Engine: {rc.engineNumber ?? "—"}</div>
+                  <div>Reg State: {rc.registrationState ?? "—"}</div>
                 </div>
 
                 <div className="space-y-2">
@@ -95,8 +95,8 @@ const RcDetail = () => {
                   <div>Insurance Valid Till: {rc.insurance?.validTill ?? "—"}</div>
                   <div>PUC Cert #: {rc.puc?.certificateNumber ?? "—"}</div>
                   <div>PUC Valid Till: {rc.puc?.validTill ?? "—"}</div>
-                  <div>Stolen: {rc.puc?.stolen === undefined ? "—" : String(rc.puc?.stolen)}</div>
-                  <div>Suspicious: {rc.puc?.suspicious === undefined ? "—" : String(rc.puc?.suspicious)}</div>
+                  <div>Stolen: {rc.stolen === undefined ? "—" : String(rc.stolen)}</div>
+                  <div>Suspicious: {rc.suspicious === undefined ? "—" : String(rc.suspicious)}</div>
                 </div>
 
                 <div className="space-y-2 md:col-span-2">

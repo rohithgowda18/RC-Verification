@@ -126,8 +126,8 @@ const Vehicles = () => {
                           <div>Previous Owners: {Array.isArray(v.previousOwners) ? v.previousOwners.join(", ") : ""}</div>
                         </div>
                         <div>
-                          <div>Chassis: {v.vehicleInfo?.chassisNumber}</div>
-                          <div>Engine: {v.vehicleInfo?.engineNumber}</div>
+                          <div>Chassis: {v.chassisNumber}</div>
+                          <div>Engine: {v.engineNumber}</div>
                           <div>Insurance: {v.insurance?.provider} ({v.insurance?.policyNumber})</div>
                         </div>
                       </div>

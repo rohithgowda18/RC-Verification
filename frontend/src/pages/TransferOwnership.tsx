@@ -7,6 +7,17 @@ import { Label } from "@/components/ui/label";
 import { Shield, ArrowLeft, Replace, UserPlus, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/lib/api";
+import { transferSchema } from "@/lib/validation";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "@/components/ui/alert-dialog";
 
 type Owner = { name: string; email?: string; phone?: string; address?: string; aadhaarLast4?: string };
 
@@ -22,6 +33,8 @@ const TransferOwnership = () => {
   const [loading, setLoading] = useState(false);
   const [stolen, setStolen] = useState<boolean>(false);
   const [suspicious, setSuspicious] = useState<boolean>(false);
+  const [formErrors, setFormErrors] = useState<string[]>([]);
+  const [confirmOpen, setConfirmOpen] = useState(false);
 
   const fetchRc = useCallback(async () => {
     if (!rcNumber.trim()) { toast.error("Enter RC Number"); return; }
@@ -59,28 +72,22 @@ const TransferOwnership = () => {
   // 2) ownersCount = ownersCount + 1
   // 3) Replace owner with newOwner
   // 4) Persist via PUT /api/rc/{id} (requires admin key)
-  const executeTransfer = async () => {
-    const errors: string[] = [];
-    if (!adminKey) errors.push("Admin key required");
-    if (!rcNumber.trim()) errors.push("RC Number is required");
-    if (!newOwner.name.trim()) errors.push("New Owner Name is required");
-    if (errors.length) { toast.error(errors[0]); return; }
-
+  const handleTransfer = async () => {
+    const input = { rcNumber: rcNumber.trim(), newOwner, adminKey };
+    const validation = transferSchema.safeParse(input);
+    if (!validation.success) {
+      const issues = validation.error.issues.map(i => i.message);
+      setFormErrors(issues);
+      toast.error(issues[0]);
+      return;
+    }
+    setFormErrors([]);
     try {
       setLoading(true);
-      if (stolen || suspicious) {
-        const proceed = window.confirm(
-          `Warning: This RC is ${stolen ? "marked stolen" : ""}${stolen && suspicious ? " and " : ""}${suspicious ? "marked suspicious" : ""}.\nDo you still want to proceed with ownership transfer?`
-        );
-        if (!proceed) { setLoading(false); return; }
-      }
-      // Load full RC by number to get id
       const rc = await apiClient.rc.search(rcNumber.trim());
       if (!rc || rc.error) { throw new Error(rc?.error || "RC not found"); }
-
       const prev = Array.isArray(rc.previousOwners) ? rc.previousOwners.slice() : [];
-      if (rc.owner?.name) { prev.push(rc.owner.name); }
-
+      if (rc.owner?.name) prev.push(rc.owner.name);
       const updated = {
         ...rc,
         previousOwners: prev,
@@ -94,14 +101,13 @@ const TransferOwnership = () => {
         },
         updatedAt: new Date().toISOString(),
       };
-
-      const res = await apiClient.rc.update(rc.id, updated, adminKey);
+      await apiClient.rc.update(rc.id, updated, adminKey);
       toast.success("Ownership transferred");
-      // Reset new owner form, keep fetched RC number for convenience
       setNewOwner({ name: "", email: "", phone: "", address: "", aadhaarLast4: "" });
       setPreviousOwners(updated.previousOwners);
       setOwnersCount(updated.ownersCount);
       setCurrentOwner(updated.owner);
+      setConfirmOpen(false);
     } catch (err: unknown) {
       const message = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "Transfer failed";
       toast.error(message);
@@ -199,11 +205,44 @@ const TransferOwnership = () => {
               </div>
             </div>
 
+            {formErrors.length > 0 && (
+              <div className="space-y-1">
+                {formErrors.slice(0,5).map((e,i) => (
+                  <p key={i} className="text-xs text-destructive">• {e}</p>
+                ))}
+              </div>
+            )}
             <div className="flex justify-end">
-              <Button onClick={executeTransfer} disabled={loading}>
+              <Button
+                disabled={loading}
+                onClick={() => {
+                  if (stolen || suspicious) {
+                    // Validate basic fields before opening dialog
+                    const basic = transferSchema.shape.rcNumber.safeParse(rcNumber.trim());
+                    if (!basic.success) { toast.error("Enter valid RC number first"); return; }
+                    setConfirmOpen(true);
+                  } else {
+                    handleTransfer();
+                  }
+                }}
+              >
                 <Replace className="h-4 w-4 mr-2" /> Transfer Ownership
               </Button>
             </div>
+            <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Fraud Risk Confirmation</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This RC is {stolen ? "marked as stolen" : ""}{stolen && suspicious ? " and " : ""}{suspicious ? "marked as suspicious" : ""}. Transferring ownership should be reviewed. Proceed?
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel disabled={loading}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction disabled={loading} onClick={handleTransfer}>Proceed</AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
           </CardContent>
         </Card>
       </main>

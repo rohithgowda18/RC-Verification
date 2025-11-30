@@ -4,6 +4,7 @@ import java.time.Instant;
 import java.util.List;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
 
 @Document(collection = "vehicles")
@@ -12,6 +13,7 @@ public class Rc {
     @Id
     private String id;
 
+    @Indexed(unique = true)
     private String rcNumber;
     private int ownersCount;
     private List<String> previousOwners;

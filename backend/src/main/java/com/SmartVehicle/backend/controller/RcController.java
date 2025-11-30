@@ -18,6 +18,8 @@ import com.SmartVehicle.backend.config.AdminKeyValidator;
 import com.SmartVehicle.backend.exception.UnauthorizedException;
 import com.SmartVehicle.backend.model.Rc;
 import com.SmartVehicle.backend.service.RcService;
+import com.SmartVehicle.backend.repository.OwnershipHistoryRepository;
+import com.SmartVehicle.backend.model.OwnershipHistory;
 
 import jakarta.servlet.http.HttpServletRequest;
 
@@ -28,11 +30,13 @@ public class RcController {
 
     private final RcService rcService;
     private final AdminKeyValidator adminKeyValidator;
+    private final OwnershipHistoryRepository ownershipHistoryRepository;
 
     @Autowired
-    public RcController(RcService rcService, AdminKeyValidator adminKeyValidator) {
+    public RcController(RcService rcService, AdminKeyValidator adminKeyValidator, OwnershipHistoryRepository ownershipHistoryRepository) {
         this.rcService = rcService;
         this.adminKeyValidator = adminKeyValidator;
+        this.ownershipHistoryRepository = ownershipHistoryRepository;
     }
 
     @GetMapping
@@ -43,6 +47,11 @@ public class RcController {
     @GetMapping("/{id}")
     public Rc getById(@PathVariable String id) {
         return rcService.getById(id);
+    }
+
+    @GetMapping("/{id}/history")
+    public List<OwnershipHistory> getHistory(@PathVariable String id) {
+        return ownershipHistoryRepository.findByRcIdOrderByTransferredAtDesc(id);
     }
 
     @GetMapping("/search")
@@ -85,6 +94,34 @@ public class RcController {
         result.put("monthlyVerifications", monthly.entrySet().stream()
                 .map(e -> java.util.Map.of("month", e.getKey(), "count", e.getValue()))
                 .toList());
+        return result;
+    }
+
+    @GetMapping("/page")
+    public java.util.Map<String, Object> getPage(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(required = false) String registrationState,
+            @RequestParam(required = false) Boolean stolen,
+            @RequestParam(required = false) Boolean suspicious,
+            @RequestParam(required = false) String make,
+            @RequestParam(required = false) String ownerName) {
+
+        if (page < 0) page = 0;
+        if (size < 1) size = 10;
+        List<Rc> filtered = rcService.getFiltered(registrationState, stolen, suspicious, make, ownerName);
+        int total = filtered.size();
+        int from = Math.min(page * size, total);
+        int to = Math.min(from + size, total);
+        List<Rc> slice = filtered.subList(from, to);
+        int totalPages = (int) Math.ceil(total / (double) size);
+
+        java.util.Map<String, Object> result = new java.util.HashMap<>();
+        result.put("items", slice);
+        result.put("page", page);
+        result.put("size", size);
+        result.put("total", total);
+        result.put("totalPages", totalPages);
         return result;
     }
 

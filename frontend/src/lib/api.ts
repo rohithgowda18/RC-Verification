@@ -47,6 +47,24 @@ export const apiClient = {
       return handleResponse(response);
     },
 
+    getPage: async (params: {
+      page?: number; size?: number; registrationState?: string; stolen?: boolean; suspicious?: boolean; make?: string; ownerName?: string;
+    }) => {
+      const q = new URLSearchParams();
+      if (params.page != null) q.set("page", String(params.page));
+      if (params.size != null) q.set("size", String(params.size));
+      if (params.registrationState) q.set("registrationState", params.registrationState);
+      if (params.stolen != null) q.set("stolen", String(params.stolen));
+      if (params.suspicious != null) q.set("suspicious", String(params.suspicious));
+      if (params.make) q.set("make", params.make);
+      if (params.ownerName) q.set("ownerName", params.ownerName);
+      const response = await fetch(`${API_BASE_URL}/api/rc/page?${q.toString()}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" },
+      });
+      return handleResponse(response);
+    },
+
     getById: async (id: string) => {
       const response = await fetch(`${API_BASE_URL}/api/rc/${id}`,
         {

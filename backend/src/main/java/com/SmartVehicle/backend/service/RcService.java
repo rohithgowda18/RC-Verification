@@ -11,4 +11,5 @@ public interface RcService {
     Rc add(Rc rc);
     Rc update(String id, Rc rc);
     void delete(String id);
+    List<Rc> getFiltered(String registrationState, Boolean stolen, Boolean suspicious, String make, String ownerName);
 }

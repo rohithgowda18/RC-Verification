@@ -8,6 +8,7 @@ import Dashboard from "./pages/Dashboard";
 import Verify from "./pages/Verify";
 import Vehicles from "./pages/Vehicles";
 import RcDetail from "./pages/RcDetail";
+import OwnershipHistory from "./pages/OwnershipHistory";
 import Analytics from "./pages/Analytics";
 import AdminUsers from "./pages/AdminUsers";
 import NotFound from "./pages/NotFound";
@@ -27,6 +28,7 @@ const App = () => (
           <Route path="/verify" element={<Verify />} />
           <Route path="/vehicles" element={<Vehicles />} />
           <Route path="/rc/:id" element={<RcDetail />} />
+          <Route path="/rc/:id/history" element={<OwnershipHistory />} />
           <Route path="/analytics" element={<Analytics />} />
           <Route path="/admin/users" element={<AdminUsers />} />
           <Route path="/transfer" element={<TransferOwnership />} />

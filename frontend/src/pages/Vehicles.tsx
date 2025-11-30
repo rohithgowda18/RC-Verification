@@ -1,16 +1,26 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Shield, ArrowLeft, Trash2, RefreshCw, Eye, Replace } from "lucide-react";
+import { Shield, ArrowLeft, Trash2, RefreshCw, Eye, Replace, History } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { apiClient } from "@/lib/api";
+import { vehicleCreateSchema } from "@/lib/validation";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 
 const Vehicles = () => {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
-  const [items, setItems] = useState<any[]>([]);
+  const [page, setPage] = useState(0);
+  const [size] = useState(10);
+  const [totalPages, setTotalPages] = useState(0);
+  const [filterState, setFilterState] = useState("");
+  const [filterMake, setFilterMake] = useState("");
+  const [filterOwner, setFilterOwner] = useState("");
+  const [filterStolen, setFilterStolen] = useState<boolean | null>(null);
+  const [filterSuspicious, setFilterSuspicious] = useState<boolean | null>(null);
+  interface Rc extends NewRc { id?: string; createdAt?: string; updatedAt?: string }
+  const [items, setItems] = useState<Rc[]>([]);
   const [adminKey, setAdminKey] = useState("");
   type Owner = { name: string; email?: string; phone?: string; address?: string; aadhaarLast4?: string };
   type VehicleInfo = { make: string; model: string; manufactureYear: string | number; color?: string; fuelType?: string; type?: string; variant?: string };
@@ -49,13 +59,24 @@ const Vehicles = () => {
     stolen: false,
     suspicious: false,
   });
+  const [formErrors, setFormErrors] = useState<string[]>([]);
 
-  const loadAll = async () => {
+  const loadPage = async (targetPage = page) => {
     try {
       setLoading(true);
-      const data = await apiClient.rc.getAll();
-      const safe = (Array.isArray(data) ? data : []).filter((x) => x && typeof x === "object");
-      setItems(safe);
+      const data = await apiClient.rc.getPage({
+        page: targetPage,
+        size,
+        registrationState: filterState || undefined,
+        make: filterMake || undefined,
+        ownerName: filterOwner || undefined,
+        stolen: filterStolen === null ? undefined : filterStolen,
+        suspicious: filterSuspicious === null ? undefined : filterSuspicious,
+      });
+      const itemsData = Array.isArray(data.items) ? data.items : [];
+      setItems(itemsData);
+      setPage(data.page ?? targetPage);
+      setTotalPages(data.totalPages ?? 0);
     } catch (err: unknown) {
       const message = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "Failed to fetch vehicles";
       toast.error(message);
@@ -82,7 +103,7 @@ const Vehicles = () => {
     }
   };
 
-  useEffect(() => { loadAll(); }, []);
+  useEffect(() => { loadPage(0); }, [filterState, filterMake, filterOwner, filterStolen, filterSuspicious]); // loadPage stable enough; suppress lint via comment
 
   return (
     <div className="min-h-screen bg-gradient-hero">
@@ -115,7 +136,7 @@ const Vehicles = () => {
                 onChange={(e) => setAdminKey(e.target.value)}
                 className="max-w-xs"
               />
-              <Button variant="outline" size="sm" onClick={loadAll} disabled={loading}>
+              <Button variant="outline" size="sm" onClick={() => loadPage(0)} disabled={loading}>
                 <RefreshCw className="h-4 w-4 mr-2" />
                 Refresh
               </Button>
@@ -175,42 +196,58 @@ const Vehicles = () => {
                   </div>
                   <div className="flex items-center gap-3 col-span-2">
                     <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={newRc.stolen} onChange={(e) => setNewRc({ ...newRc, stolen: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={newRc.stolen}
+                        onChange={(e) => setNewRc({ ...newRc, stolen: e.target.checked })}
+                      />
                       Stolen
                     </label>
                     <label className="flex items-center gap-2 text-sm">
-                      <input type="checkbox" checked={newRc.suspicious} onChange={(e) => setNewRc({ ...newRc, suspicious: e.target.checked })} />
+                      <input
+                        type="checkbox"
+                        checked={newRc.suspicious}
+                        onChange={(e) => setNewRc({ ...newRc, suspicious: e.target.checked })}
+                      />
                       Suspicious
                     </label>
                     <Button
-                      className="ml-auto"
+                      size="sm"
+                      disabled={loading}
                       onClick={async () => {
-                        // Basic validation
-                        const errors: string[] = [];
-                        if (!adminKey) errors.push("Admin key required");
-                        if (!newRc.rcNumber?.trim()) errors.push("RC Number is required");
-                        if (!newRc.owner?.name?.trim()) errors.push("Owner Name is required");
-                        if (!newRc.registrationState?.trim()) errors.push("Registration State is required");
-                        if (!newRc.vehicleInfo.make?.trim()) errors.push("Make is required");
-                        if (!newRc.vehicleInfo.model?.trim()) errors.push("Model is required");
-                        if (!String(newRc.vehicleInfo.manufactureYear).trim()) errors.push("Manufacture Year is required");
-                        if (!newRc.chassisNumber?.trim()) errors.push("Chassis Number is required");
-                        if (!newRc.engineNumber?.trim()) errors.push("Engine Number is required");
-                        const ownersArr = Array.isArray(newRc.previousOwners) ? newRc.previousOwners.filter(Boolean) : [];
-                        const ownersCount = (typeof newRc.ownersCount === "number" && newRc.ownersCount > 0) ? newRc.ownersCount : (1 + ownersArr.length);
-                        if (ownersCount < 1) errors.push("Owners Count must be at least 1");
-
-                        if (errors.length) { toast.error(errors[0]); return; }
-
+                        const ownersArr = Array.isArray(newRc.previousOwners)
+                          ? newRc.previousOwners.filter(Boolean)
+                          : [];
+                        const ownersCount =
+                          typeof newRc.ownersCount === "number" && newRc.ownersCount > 0
+                            ? newRc.ownersCount
+                            : 1 + ownersArr.length;
+                        const payload: NewRc = { ...newRc, ownersCount, previousOwners: ownersArr };
+                        if (!adminKey) {
+                          const msg = "Admin key required";
+                          setFormErrors([msg]);
+                          toast.error(msg);
+                          return;
+                        }
+                        const validation = vehicleCreateSchema.safeParse(payload);
+                        if (!validation.success) {
+                          const issues = validation.error.issues.map((i) => i.message);
+                          setFormErrors(issues);
+                          toast.error(issues[0]);
+                          return;
+                        }
                         try {
                           setLoading(true);
-                          const payload: NewRc = { ...newRc, ownersCount, previousOwners: ownersArr };
                           const created = await apiClient.rc.create(payload, adminKey);
                           toast.success("Vehicle created");
                           setItems((prev) => [created, ...prev]);
                           setShowCreate(false);
+                          setFormErrors([]);
                         } catch (err: unknown) {
-                          const message = err && typeof err === "object" && "message" in err ? String((err as { message?: string }).message) : "Create failed";
+                          const message =
+                            err && typeof err === "object" && "message" in err
+                              ? String((err as { message?: string }).message)
+                              : "Create failed";
                           toast.error(message);
                         } finally {
                           setLoading(false);
@@ -220,10 +257,42 @@ const Vehicles = () => {
                       Submit
                     </Button>
                   </div>
+                  {formErrors.length > 0 && (
+                    <div className="col-span-2 space-y-1">
+                      {formErrors.slice(0, 5).map((e, i) => (
+                        <p key={i} className="text-xs text-destructive">• {e}</p>
+                      ))}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             )}
 
+            <div className="mb-4 grid md:grid-cols-3 gap-3">
+              <Input placeholder="Filter State" value={filterState} onChange={(e) => setFilterState(e.target.value)} />
+              <Input placeholder="Filter Make" value={filterMake} onChange={(e) => setFilterMake(e.target.value)} />
+              <Input placeholder="Filter Owner" value={filterOwner} onChange={(e) => setFilterOwner(e.target.value)} />
+              <div className="flex items-center gap-2 text-sm">
+                <label>Stolen</label>
+                <select className="border rounded px-2 py-1 bg-background" value={filterStolen === null ? "" : filterStolen ? "true" : "false"} onChange={(e) => {
+                  const v = e.target.value; setFilterStolen(v === "" ? null : v === "true");
+                }}>
+                  <option value="">Any</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                <label>Suspicious</label>
+                <select className="border rounded px-2 py-1 bg-background" value={filterSuspicious === null ? "" : filterSuspicious ? "true" : "false"} onChange={(e) => {
+                  const v = e.target.value; setFilterSuspicious(v === "" ? null : v === "true");
+                }}>
+                  <option value="">Any</option>
+                  <option value="true">Yes</option>
+                  <option value="false">No</option>
+                </select>
+              </div>
+            </div>
             {loading ? (
               <p className="text-muted-foreground">Loading...</p>
             ) : items.length === 0 ? (
@@ -248,6 +317,14 @@ const Vehicles = () => {
                             disabled={!v?.id}
                           >
                             <Eye className="h-4 w-4 mr-1" /> View
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => v?.id && navigate(`/rc/${v.id}/history`)}
+                            disabled={!v?.id}
+                          >
+                            <History className="h-4 w-4 mr-1" /> History
                           </Button>
                           <Button
                             variant="outline"
@@ -285,6 +362,11 @@ const Vehicles = () => {
                 ))}
               </div>
             )}
+            <div className="mt-6 flex items-center justify-between">
+              <Button variant="outline" size="sm" disabled={loading || page <= 0} onClick={() => loadPage(page - 1)}>Prev</Button>
+              <p className="text-xs text-muted-foreground">Page {page + 1} / {totalPages || 1}</p>
+              <Button variant="outline" size="sm" disabled={loading || page + 1 >= totalPages} onClick={() => loadPage(page + 1)}>Next</Button>
+            </div>
           </CardContent>
         </Card>
       </main>
